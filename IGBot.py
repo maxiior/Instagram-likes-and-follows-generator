@@ -9,58 +9,77 @@ from selenium.webdriver.common.keys import Keys
 import time
 import random
 import os
+import numpy as np
 
-driver = 0
-path = "C:\\Python\\chromedriver.exe"
-max_likes = 60
-max_follows = 60
+driver = None
+path = "D:\\Python\\chromedriver.exe"
+
+ADAPTATION = 2
+MAX_LIKES_PER_HOUR = 60
+MAX_FOLLOWS_PER_HOUR = 60
+LIMIT_OF_FOLLOWED_ACCOUNTS = 7500
+DAYS_TO_UNFOLLOW = 7
+
 
 def main():
     global driver
     print('WELCOME TO IGBOT\n')
 
-    login = input('Login: ')
-    password = input('Password: ')
-    target = input('Target: ')
-    hours = input('How many hours should run?: ')
-    limit = float(input('Followers limit that BOT should follow: '))
+    login = input('Login : ')
+    password = input('Password : ')
+    target = input('Target : ')
+    hours = input('How many hours should run? : ')
+    limit = float(input('Followers limit that BOT should follow : '))
+    clearing_mode = input(
+        'What type of clearing you want to use? [light/hard] : ')
     driver = webdriver.Chrome(path)
-    IGBot = InstagramBot(login, password, target, hours, limit, driver)
+    IGBot = InstagramBot(login, password, target, hours,
+                         limit, clearing_mode, ADAPTATION, driver)
     IGBot.run_bot()
 
+
 class InstagramBot:
-    def __init__(self, username, password, target, hh, followers_limit, driver):
-        self.followers_limit = int(followers_limit) 
+    def __init__(self, username, password, target, hours, followers_limit, clearing_mode, adaptation, driver):
+        self.followers_limit = int(followers_limit)
         self.username = username
         self.all_hrefs = self.load_all_hrefs()
-        self.cur_hrefs = self.load_cur_hrefs()
-        self.cur_hrefs_time = self.load_cur_hrefs_times()
-        self.prv_hrefs = self.load_prv_hrefs()
+        self.cur_hrefs = self.load_current_hrefs()
+        self.cur_hrefs_time = self.load_current_hrefs_times()
+        self.prv_hrefs = self.load_private_hrefs()
         self.too_many_followers_hrefs = self.load_too_many_followers_hrefs()
         self.driver = driver
         self.password = password
         self.hrefs = []
         self.target = target
-        self.hh = hh
-        self.adaptation = 2
+        self.hours = hours
+        self.clearing_mode = clearing_mode
+        self.adaptation = adaptation
+
     def closeBrowser(self):
         self.driver.close()
+
+    def wait(self, a, b):
+        time.sleep(self.adaptation*random.randint(a, b))
+
     def login(self):
         self.driver.get("https://www.instagram.com/")
         time.sleep(2)
-        user_name_elem = self.driver.find_element_by_xpath("//input[@name='username']")
-        user_name_elem.clear()
-        user_name_elem.send_keys(self.username)
-        password_elem = self.driver.find_element_by_xpath("//input[@name='password']")
-        password_elem.clear()
-        password_elem.send_keys(self.password)
-        password_elem.send_keys(Keys.RETURN)
+        user_name_textbox = self.driver.find_element_by_xpath(
+            "//input[@name='username']")
+        password_textbox = self.driver.find_element_by_xpath(
+            "//input[@name='password']")
+        user_name_textbox.clear()
+        user_name_textbox.send_keys(self.username)
+        password_textbox.clear()
+        password_textbox.send_keys(self.password)
+        password_textbox.send_keys(Keys.RETURN)
         time.sleep(5)
+
     def get_followers_number(self):
-        followers = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, '#react-root > section > main')))
-        sflw = B(followers.get_attribute('innerHTML'), 'html.parser')
-        followers = sflw.findAll('span', {'class':'g47SY'})
-        f = followers[1].getText().replace('.','').replace(',', '.').replace(' ', '')
+        followers = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located(
+            (By.CSS_SELECTOR, '#react-root > section > main > div > header > section > ul > li:nth-child(2) > a > span')))
+        f = followers.text.replace(
+            '.', '').replace(',', '.').replace(' ', '')
         if 'tys' in f:
             f = float(f[:-3])*10**3
             return float(f)
@@ -69,12 +88,13 @@ class InstagramBot:
             return float(f)
         else:
             return float(f)
-    def get_my_followed_number(self):
+
+    def get_my_followed_accounts_number(self):
         self.driver.get('https://www.instagram.com/' + self.username + '/')
-        followers = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, '#react-root > section > main')))
-        sflw = B(followers.get_attribute('innerHTML'), 'html.parser')
-        followers = sflw.findAll('span', {'class':'g47SY'})
-        f = followers[2].getText().replace('.','').replace(',', '.').replace(' ', '')
+        followers = WebDriverWait(self.driver, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, '#react-root > section > main > div > header > section > ul > li:nth-child(2) > a > span')))
+        f = followers.text.replace(
+            '.', '').replace(',', '.').replace(' ', '')
         if 'tys' in f:
             f = float(f[:-3])*10**3
             return f
@@ -83,38 +103,38 @@ class InstagramBot:
             return f
         else:
             return float(f)
+
     def get_followers_hrefs(self, user, times):
         self.driver.get('https://www.instagram.com/' + user + '/')
-        time.sleep(self.adaptation*random.randint(3,5))
-        followers_button = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.CSS_SELECTOR, '#react-root > section > main > div > header > section > ul > li:nth-child(2) > a > span')))
+        self.wait(3, 5)
+        followers_button = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located(
+            (By.CSS_SELECTOR, '#react-root > section > main > div > header > section > ul > li:nth-child(2) > a > span')))
         followers_button.click()
         try:
-            self.popup = WebDriverWait(self.driver, 6).until(EC.presence_of_element_located((By.XPATH, '/html/body/div[4]/div/div/div[2]')))
+            self.popup = WebDriverWait(self.driver, 6).until(
+                EC.presence_of_element_located((By.XPATH, '/html/body/div[5]/div/div/div[2]')))
         except:
-            try:
-                self.popup = WebDriverWait(self.driver, 6).until(EC.presence_of_element_located((By.XPATH, '/html/body/div[5]/div/div[2]')))
-            except:
-                self.popup = WebDriverWait(self.driver, 6).until(EC.presence_of_element_located((By.XPATH, '/html/body/div[3]/div/div[2]')))
-        for i in range(3):
-            time.sleep(self.adaptation*1)
-            self.driver.execute_script('arguments[0].scrollTop = arguments[0].scrollHeight/{}'.format(str(11-i)), self.popup)
+            print("ERROR: get_followers_hrefs")
+
         for i in range(times):
-            time.sleep(self.adaptation*2)
-            self.driver.execute_script('arguments[0].scrollTop = arguments[0].scrollHeight', self.popup)
-        b_popup = B(self.popup.get_attribute('innerHTML'), 'html.parser')
-        temp_hrefs = []
-        for i in b_popup.findAll('li'):
+            self.wait(1, 2)
+            self.driver.execute_script(
+                'arguments[0].scrollTop = arguments[0].scrollHeight', self.popup)
+        popup = B(self.popup.get_attribute('innerHTML'), 'html.parser')
+        accounts = []
+        for i in popup.findAll('li'):
             try:
                 hlink = i.findAll('a')[0]['href']
                 if 'div' in hlink or hlink == '/'+self.username+'/':
                     continue
-                elif self.verify_hlink(hlink) == True:
-                    temp_hrefs.append(hlink)
+                elif self.verify_hlink(hlink):
+                    accounts.append(hlink)
                 else:
                     continue
             except:
                 pass
-        return temp_hrefs
+        return accounts
+
     def verify_hlink(self, hlink):
         for i in self.all_hrefs:
             if i == hlink:
@@ -126,275 +146,380 @@ class InstagramBot:
             if i == hlink:
                 return False
         return True
-    def get_specific_hrefs(self):
-        x = 0
-        temp_hrefs = []
+
+    def get_specific_accounts(self):
+        number_of_selected_accounts = 0
+        accounts = []
         i = 10
-        while x < 120:
+        while number_of_selected_accounts < 120:
             i += 2
-            temp_hrefs = self.get_followers_hrefs(self.target, i)
-            x = len(temp_hrefs)
-        if x > 120:
-            while x != 120:
-                temp_hrefs.pop()
-                x = len(temp_hrefs)
-        self.hrefs = temp_hrefs
+            accounts = self.get_followers_hrefs(self.target, i)
+            number_of_selected_accounts = len(accounts)
+        if number_of_selected_accounts > 120:
+            while number_of_selected_accounts != 120:
+                accounts.pop()
+                number_of_selected_accounts = len(accounts)
+        self.hrefs = accounts
+
     def error(self):
         while True:
+            print('ERR: strona nie działa')
             try:
-                err = WebDriverWait(self.driver, 3).until(EC.presence_of_element_located((By.CSS_SELECTOR,'#main-message > h1 > span')))
+                err = WebDriverWait(self.driver, 3).until(
+                    EC.presence_of_element_located((By.CSS_SELECTOR, '#main-message > h1 > span')))
                 if err.text == 'Ta strona nie działa':
                     driver.refresh()
                 else:
                     break
             except:
                 break
-    def is_public(self):
+
+    def is_account_public(self):
         try:
-            astate = WebDriverWait(self.driver, 3).until(EC.presence_of_element_located((By.CLASS_NAME,'rkEop')))
-            if astate.text == 'To konto jest prywatne':
+            information = WebDriverWait(self.driver, 3).until(
+                EC.presence_of_element_located((By.CLASS_NAME, 'rkEop')))
+            if information.text == 'To konto jest prywatne':
                 return False
             else:
                 return True
         except:
             return True
-    def is_existing(self):
+
+    def is_account_existing(self):
         try:
-            astate = WebDriverWait(self.driver, 3).until(EC.presence_of_element_located((By.CSS_SELECTOR,'body > div > div.page.-cx-PRIVATE-Page__body.-cx-PRIVATE-Page__body__ > div > div > h2')))
-            if astate.text == 'Przepraszamy, ta strona jest niedostępna': 
+            information = WebDriverWait(self.driver, 3).until(EC.presence_of_element_located(
+                (By.CSS_SELECTOR, 'body > div > div.page.-cx-PRIVATE-Page__body.-cx-PRIVATE-Page__body__ > div > div > h2')))
+            if information.text == 'Przepraszamy, ta strona jest niedostępna':
                 return False
             else:
                 return True
         except:
             try:
-                astate = WebDriverWait(self.driver, 3).until(EC.presence_of_element_located((By.CSS_SELECTOR,'#react-root > section > main > div > h2')))
-                if astate.text == 'Przepraszamy, ta strona jest niedostępna':
+                information = WebDriverWait(self.driver, 3).until(EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, '#react-root > section > main > div > h2')))
+                if information.text == 'Przepraszamy, ta strona jest niedostępna':
                     return False
                 else:
                     return True
             except:
                 return True
-    def like_post(self):
-        post = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, '#react-root > section > main > div > div._2z6nI > article > div:nth-child(1) > div > div:nth-child(1) > div:nth-child(1)')))
-        html = post.get_attribute('innerHTML')
-        h = B(html, 'html.parser')
-        href = h.a['href']
-        self.driver.get('https://www.instagram.com' + href)
-        time.sleep(self.adaptation*2)
-        like_button = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.CSS_SELECTOR, '#react-root > section > main > div > div.ltEKP > article > div.eo2As > section.ltpMr.Slqrh > span.fr66n > button > div > span > svg')))
-        like_button.click()
-    def follow_page(self):
-        try:
-            follow = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.XPATH, '//*[@id="react-root"]/section/main/div/header/section/div[1]/div[1]/div/div/div/span/span[1]/button')))
-        except:
-            follow = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located((By.XPATH, '//*[@id="react-root"]/section/main/div/header/section/div[1]/button')))
-        f_text = follow.text
-        if f_text.lower() == 'obserwuj':
-            follow.click()
 
-    def app_all_hrefs(self, i):
-        there = os.path.dirname(__file__) + "/" + self.username + "_all_hrefs.txt"
-        file = open(there, "a")
-        file.write("%s\n" % i)
-        file.close()
-    def load_all_hrefs(self):
-        tab = []
-        there =  os.path.dirname(__file__) + "/" + self.username + "_all_hrefs.txt" 
+    def like_post(self):
+        post = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located(
+            (By.CSS_SELECTOR, '#react-root > section > main > div > div._2z6nI > article > div:nth-child(1) > div > div:nth-child(1) > div:nth-child(1)')))
+        href = B(post.get_attribute('innerHTML'), 'html.parser').a['href']
+        self.driver.get('https://www.instagram.com' + href)
+        self.wait(1, 2)
+        like_button = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located(
+            (By.CSS_SELECTOR, '#react-root > section > main > div > div.ltEKP > article > div.eo2As > section.ltpMr.Slqrh > span.fr66n > button > div > span > svg')))
+        like_button.click()
+
+    def follow_account(self):
         try:
-            file = open(there, "r")
+            follow_button = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located(
+                (By.XPATH, '//*[@id="react-root"]/section/main/div/header/section/div[1]/div[1]/div/div/button')))
+        except:
+            print('ERROR: follow_account')
+        button_text = follow_button.text
+        if button_text.lower() == 'obserwuj':
+            follow_button.click()
+
+    def load_all_hrefs(self):
+        hrefs = []
+        file_path = os.path.dirname(__file__) + "/" + \
+            self.username + "_all_hrefs.txt"
+        try:
+            file = open(file_path, "r")
             for i in file:
-                tab.append(i[:-1])
+                hrefs.append(i[:-1])
             file.close()
         except:
-            file = open(there, "w")
+            file = open(file_path, "w")
             file.close()
-        return tab
-    def app_cur_hrefs(self, i):
-        there = os.path.dirname(__file__) + "/" + self.username +  "_cur_hrefs.txt"
-        file = open(there, "a")
-        file.write("%s\n" % i)
+        return hrefs
+
+    def load_current_hrefs(self):
+        hrefs = []
+        file_path = os.path.dirname(__file__) + "/" + \
+            self.username + "_cur_hrefs.txt"
+        try:
+            file = open(file_path, "r")
+            for i in file:
+                hrefs.append(i[:-1])
+            file.close()
+        except:
+            file = open(file_path, "w")
+            file.close()
+        return hrefs
+
+    def load_current_hrefs_times(self):
+        hrefs = []
+        file_path = os.path.dirname(__file__) + "/" + \
+            self.username + "_cur_hrefs_time.txt"
+        try:
+            file = open(file_path, "r")
+            for i in file:
+                hrefs.append(float(i[:-1]))
+            file.close()
+        except:
+            file = open(file_path, "w")
+            file.close()
+        return hrefs
+
+    def load_private_hrefs(self):
+        hrefs = []
+        file_path = os.path.dirname(__file__) + "/" + \
+            self.username + "_prv_hrefs.txt"
+        try:
+            file = open(file_path, "r")
+            for i in file:
+                hrefs.append(i[:-1])
+            file.close()
+        except:
+            file = open(file_path, "w")
+            file.close()
+        return hrefs
+
+    def load_too_many_followers_hrefs(self):
+        hrefs = []
+        file_path = os.path.dirname(__file__) + "/" + self.username + "_" + \
+            str(self.followers_limit) + "_too_many_followers_hrefs.txt"
+        try:
+            file = open(file_path, "r")
+            for i in file:
+                hrefs.append(i[:-1])
+            file.close()
+        except:
+            file = open(file_path, "w")
+            file.close()
+        return hrefs
+
+    def load_transitional_follow_me_hrefs(self):
+        hrefs = []
+        file_path = os.path.dirname(__file__) + "/" + \
+            self.username + "_transitional_follow_me_hrefs.txt"
+        try:
+            file = open(file_path, "r")
+            for i in file:
+                hrefs.append(i[:-1])
+            file.close()
+        except:
+            file = open(file_path, "w")
+            file.close()
+        return hrefs
+
+    def append_all_hrefs(self, href):
+        file_path = os.path.dirname(__file__) + "/" + \
+            self.username + "_all_hrefs.txt"
+        file = open(file_path, "a")
+        file.write("%s\n" % href)
         file.close()
-        there = os.path.dirname(__file__) + "/" + self.username +  "_cur_hrefs_time.txt"
-        file = open(there, "a")
+
+    def append_transitional_follow_me_hrefs(self, href):
+        file_path = os.path.dirname(__file__) + "/" + \
+            self.username + "_transitional_follow_me_hrefs.txt"
+        file = open(file_path, "a")
+        file.write("%s\n" % href)
+        file.close()
+
+    def append_current_hrefs(self, href):
+        file_path = os.path.dirname(__file__) + "/" + \
+            self.username + "_cur_hrefs.txt"
+        file = open(file_path, "a")
+        file.write("%s\n" % href)
+        file.close()
+        file_path = os.path.dirname(__file__) + "/" + \
+            self.username + "_cur_hrefs_time.txt"
+        file = open(file_path, "a")
         file.write("%f\n" % time.time())
         file.close()
-    def app_prv_hrefs(self, i):
-        there = os.path.dirname(__file__) + "/" + self.username + "_prv_hrefs.txt"
-        file = open(there, "a")
-        file.write("%s\n" % i)
+
+    def append_private_hrefs(self, href):
+        file_path = os.path.dirname(__file__) + "/" + \
+            self.username + "_prv_hrefs.txt"
+        file = open(file_path, "a")
+        file.write("%s\n" % href)
         file.close()
-    def app_too_many_followers_hrefs(self, i):
-        self.too_many_followers_hrefs.append(i)
-        there = os.path.dirname(__file__) + "/" + self.username + "_" + str(self.followers_limit) + "_too_many_followers_hrefs.txt"
-        file = open(there, "a")
-        file.write("%s\n" % i)
-        file.close()    
-    def save_cur_hrefs(self):
-        there = os.path.dirname(__file__) + "/" + self.username + "_cur_hrefs.txt"
-        file = open(there, "w")
+
+    def append_too_many_followers_hrefs(self, href):
+        self.too_many_followers_hrefs.append(href)
+        file_path = os.path.dirname(__file__) + "/" + self.username + "_" + \
+            str(self.followers_limit) + "_too_many_followers_hrefs.txt"
+        file = open(file_path, "a")
+        file.write("%s\n" % href)
+        file.close()
+
+    def save_current_hrefs(self):
+        file_path = os.path.dirname(__file__) + "/" + \
+            self.username + "_cur_hrefs.txt"
+        file = open(file_path, "w")
         for i in self.cur_hrefs:
             file.write("%s\n" % i)
         file.close()
-        there = os.path.dirname(__file__) + "/" + self.username + "_cur_hrefs_time.txt"
-        file = open(there, "w")
+        file_path = os.path.dirname(__file__) + "/" + \
+            self.username + "_cur_hrefs_time.txt"
+        file = open(file_path, "w")
         for i in self.cur_hrefs_time:
             file.write("%s\n" % i)
         file.close()
-    def app_me_hrefs(self, me_hrefs):
-        there = os.path.dirname(__file__) + "/" + self.username + "_me_hrefs.txt"
-        file = open(there, "a")
-        file.write("%s\n" % me_hrefs)
-        file.close()
-    def load_cur_hrefs(self):
-        tab = []
-        there = os.path.dirname(__file__) + "/" + self.username + "_cur_hrefs.txt"
-        try:
-            file = open(there, "r")
-            for i in file:
-                tab.append(i[:-1])
-            file.close()
-        except:
-            file = open(there, "w")
-            file.close()
-        return tab
-    def load_cur_hrefs_times(self):
-        tab = []
-        there = os.path.dirname(__file__) + "/" + self.username + "_cur_hrefs_time.txt"
-        try:
-            file = open(there, "r")
-            for i in file:
-                tab.append(float(i[:-1]))
-            file.close()
-        except:
-            file = open(there, "w")
-            file.close()
-        return tab
-    def load_prv_hrefs(self):
-        tab = []
-        there = os.path.dirname(__file__) + "/" + self.username + "_prv_hrefs.txt"
-        try:
-            file = open(there, "r")
-            for i in file:
-                tab.append(i[:-1])
-            file.close()
-        except:
-            file = open(there, "w")
-            file.close()
-        return tab
-    def load_too_many_followers_hrefs(self):
-        tab = []
-        there = os.path.dirname(__file__) + "/" + self.username + "_" + str(self.followers_limit) + "_too_many_followers_hrefs.txt"
-        try:
-            file = open(there, "r")
-            for i in file:
-                tab.append(i[:-1])
-            file.close()
-        except:
-            file = open(there, "w")
-            file.close()
-        return tab
 
-    def app_update_follow_me_hrefs(self, href):
-        there = os.path.dirname(__file__) + "/" + self.username + "_update_follow_me_hrefs.txt"
-        file = open(there, "a")
+    def append_hrefs_that_follow_me(self, href):
+        file_path = os.path.dirname(__file__) + "/" + \
+            self.username + "_me_hrefs.txt"
+        file = open(file_path, "a")
         file.write("%s\n" % href)
         file.close()
-    def load_update_follow_me_hrefs(self):
-        tab = []
-        there = os.path.dirname(__file__) + "/" + self.username + "_update_follow_me_hrefs.txt"
-        try:
-            file = open(there, "r")
-            for i in file:
-                tab.append(i[:-1])
-            file.close()
-        except:
-            file = open(there, "w")
-            file.close()
-        return tab
-    def check_update_follow_me_hrefs(self, tab, href):
-        for x in tab:
-            if x == href:
+
+    def check_if_in_transitional_follow_me_hrefs(self, tab, href):
+        for i in tab:
+            if i == href:
                 return True
         return False
-    def final_update(self, update_follow_me_hrefs):
-        there = os.path.dirname(__file__) + "/" + self.username + "_update_follow_me_hrefs.txt"
-        file = open(there, "w")
-        for i in update_follow_me_hrefs:
+
+    def final_update(self, hrefs):
+        file_path = os.path.dirname(__file__) + "/" + \
+            self.username + "_transitional_follow_me_hrefs.txt"
+        file = open(file_path, "w")
+        for i in hrefs:
             file.write("%s\n" % i)
         file.close()
 
-    #def get_statistics(self, cur_hrefs_size, afterdays):
-    #    there = os.path.dirname(__file__) + "/" + self.username + "_statistics.txt"
-    #    file = open(there, "a")
-    #    file.write("%d %d\n" % (cur_hrefs_size, afterdays))
-    #    file.close()
-    def clear_cur_hrefs(self, days):
-        two_days = 172800
-        days = days*24*60*60
-        update_follow_me_hrefs = self.load_update_follow_me_hrefs()
+    def hard_clear_current_hrefs(self, days):
+        TWO_DAYS_IN_SECONDS = 172800
+        FEW_DAYS_IN_SECONDS = days*24*60*60
+        transitional_follow_me_hrefs = self.load_transitional_follow_me_hrefs()
         i = 0
         while i != len(self.cur_hrefs_time):
-            if two_days <= (time.time() - self.cur_hrefs_time[i]) < days:
-                if self.check_update_follow_me_hrefs(update_follow_me_hrefs, self.cur_hrefs[i]) == False:
-                    if self.check_if_follow_me(self.cur_hrefs[i]) == False:
+            if TWO_DAYS_IN_SECONDS <= (time.time() - self.cur_hrefs_time[i]) < FEW_DAYS_IN_SECONDS:
+                if self.check_if_in_transitional_follow_me_hrefs(transitional_follow_me_hrefs, self.cur_hrefs[i]) == False:
+                    if self.check_if_account_follow_me(self.cur_hrefs[i]) == False:
                         self.cur_hrefs.remove(self.cur_hrefs[i])
                         self.cur_hrefs_time.remove(self.cur_hrefs_time[i])
-                        self.save_cur_hrefs()
-                        time.sleep(self.adaptation*random.randint(5,7))
+                        self.save_current_hrefs()
+                        self.wait(5, 7)
                     else:
-                        self.app_update_follow_me_hrefs(self.cur_hrefs[i])
+                        self.append_transitional_follow_me_hrefs(
+                            self.cur_hrefs[i])
                         i += 1
                 else:
                     i += 1
-            elif (time.time() - self.cur_hrefs_time[i]) >= days:
-                if self.check_if_follow_me(self.cur_hrefs[i]):
-                    self.app_me_hrefs(self.cur_hrefs[i])
+            elif (time.time() - self.cur_hrefs_time[i]) >= FEW_DAYS_IN_SECONDS:
+                if self.check_if_account_follow_me(self.cur_hrefs[i]):
+                    self.append_hrefs_that_follow_me(self.cur_hrefs[i])
                     self.unfollow(self.cur_hrefs[i])
-                    update_follow_me_hrefs.remove(self.cur_hrefs[i])
+                    transitional_follow_me_hrefs.remove(self.cur_hrefs[i])
                     self.cur_hrefs.remove(self.cur_hrefs[i])
                     self.cur_hrefs_time.remove(self.cur_hrefs_time[i])
-                    self.save_cur_hrefs()
-                    self.final_update(update_follow_me_hrefs)
+                    self.save_current_hrefs()
+                    self.final_update(transitional_follow_me_hrefs)
                 else:
                     try:
-                        update_follow_me_hrefs.remove(self.cur_hrefs[i])
+                        transitional_follow_me_hrefs.remove(self.cur_hrefs[i])
                     except:
                         pass
                     self.cur_hrefs.remove(self.cur_hrefs[i])
                     self.cur_hrefs_time.remove(self.cur_hrefs_time[i])
-                    self.save_cur_hrefs()
-                time.sleep(self.adaptation*random.randint(5,7))
+                    self.save_current_hrefs()
+                self.wait(5, 7)
             else:
                 i += 1
 
-    def check_if_follow_me(self, account):
-        driver.get('https://www.instagram.com' + account)
+    def light_clear_current_hrefs(self):
+        self.driver.get('https://www.instagram.com/' + self.username + '/')
+        self.wait(3, 5)
+
+        followed_button = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located(
+            (By.CSS_SELECTOR, '#react-root > section > main > div > header > section > ul > li:nth-child(3) > a > span')))
+        followed_button.click()
+
+        self.popup = WebDriverWait(self.driver, 6).until(
+            EC.presence_of_element_located((By.XPATH, '/html/body/div[5]/div/div/div[3]')))
+
+        for i in range(int(int(followed_button.text)/10)):
+            time.sleep(self.adaptation*0.5)
+            self.driver.execute_script(
+                'arguments[0].scrollTop = arguments[0].scrollHeight', self.popup)
+
+        follow_buttons = []
+        names = []
+
+        follow_buttons_list = B(self.popup.get_attribute(
+            'innerHTML'), 'html.parser').findAll('button', {'class': 'sqdOP'})
+
+        for i in range(len(follow_buttons_list)):
+            name = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located(
+                (By.CSS_SELECTOR, 'body > div.RnEpo.Yx5HN > div > div > div.isgrP > ul > div > li:nth-child({0}) > div > div.t2ksc > div.enpQJ > div.d7ByH > span > a'.format(i+1))))
+            if name.text in self.cur_hrefs:
+                if self.check_if_user_should_be_removed(name, DAYS_TO_UNFOLLOW) == True:
+                    single_follow_button = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located(
+                        (By.CSS_SELECTOR, 'body > div.RnEpo.Yx5HN > div > div > div.isgrP > ul > div > li:nth-child({0}) > div > div.Pkbci > button'.format(i+1))))
+                    follow_buttons.append(single_follow_button)
+                    names.append(name)
+
+        buttons_and_names = np.column_stack((follow_buttons, names))
+
+        for i in buttons_and_names:
+            self.wait(1, 2)
+            if i[0].text.lower() == 'obserwowanie':
+                i[0].click()
+                self.wait(1, 2)
+                button = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located(
+                    (By.CSS_SELECTOR, 'body > div:nth-child(19) > div > div > div > div.mt3GC > button.aOOlW.-Cab_')))
+                button.click()
+                self.remove_from_current_followed_users(i[1].text)
+        self.wait(1, 2)
+
+    def check_if_user_should_be_removed(self, user, days_to_unfollow):
+        if time.time() - self.cur_hrefs_time[self.cur_hrefs.index(user)] >= days_to_unfollow*24*60*60:
+            return True
+        else:
+            return False
+
+    def remove_from_current_followed_users(self, href):
+        i = self.cur_hrefs.index(href)
+        self.cur_hrefs.remove(href)
+        self.cur_hrefs_time.pop(i)
+        path = os.path.dirname(__file__) + "/" + \
+            self.username + "_cur_hrefs.txt"
+        file = open(path, "w")
+        for i in self.cur_hrefs:
+            file.write("%s\n" % i)
+        file.close()
+        path = os.path.dirname(__file__) + "/" + \
+            self.username + "cur_hrefs_times.txt"
+        file = open(path, "w")
+        for i in self.cur_hrefs_times:
+            file.write("%s\n" % i)
+        file.close()
+
+    def check_if_account_follow_me(self, href):
+        driver.get('https://www.instagram.com' + href)
         self.error()
-        if self.is_existing():
-            time.sleep(self.adaptation*random.randint(1,2))
+        if self.is_account_existing():
+            self.wait(1, 2)
             try:
-                follow_button = WebDriverWait(self.driver, 6).until(EC.presence_of_element_located((By.XPATH, '//*[@id="react-root"]/section/main/div/header/section/div[1]/div[1]/div/div[2]/div/span/span[1]/button')))
+                follow_button = WebDriverWait(self.driver, 6).until(EC.presence_of_element_located(
+                    (By.XPATH, '//*[@id="react-root"]/section/main/div/header/section/div[1]/div[1]/div/div[2]/button')))
             except:
-                try:
-                    follow_button = WebDriverWait(self.driver, 6).until(EC.presence_of_element_located((By.XPATH, '//*[@id="react-root"]/section/main/div/header/section/div[1]/button')))
-                except: 
-                    follow_button = WebDriverWait(self.driver, 6).until(EC.presence_of_element_located((By.XPATH, '//*[@id="react-root"]/section/main/div/header/section/div[1]/div[1]/span/span[1]/button')))
+                print('ERROR: check_if_account_follow_me')
+
             if follow_button.text.lower() == 'obserwuj':
-                return False 
+                return False
             follow_button.click()
             try:
-                unfollow_button = WebDriverWait(self.driver, 8).until(EC.presence_of_element_located((By.XPATH, '/html/body/div[4]/div/div/div/div[3]/button[1]')))
+                unfollow_button = WebDriverWait(self.driver, 8).until(EC.presence_of_element_located(
+                    (By.XPATH, '/html/body/div[5]/div/div/div/div[3]/button[1]')))
             except:
-                unfollow_button = WebDriverWait(self.driver, 8).until(EC.presence_of_element_located((By.XPATH, '//*[@id="react-root"]/section/main/div/header/section/div[1]/div[2]/span/span[1]/button')))
-            time.sleep(self.adaptation*random.randint(1,2))
+                print('ERROR: check_if_account_follow_me')
+            self.wait(1, 2)
             unfollow_button.click()
             try:
-                follow = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located((By.XPATH, '//*[@id="react-root"]/section/main/div/header/section/div[1]/div[1]/div/div/div/span/span[1]/button')))
-                f_text = follow.text
-                if f_text.lower() == 'również obserwuj':
-                    time.sleep(self.adaptation*random.randint(1,2))
-                    follow.click()
-                    time.sleep(self.adaptation*random.randint(4,6))
+                follow_button = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located(
+                    (By.XPATH, '//*[@id="react-root"]/section/main/div/header/section/div[1]/div[1]/div/div/button')))
+                if follow_button.text.lower() == 'również obserwuj':
+                    self.wait(1, 2)
+                    follow_button.click()
+                    self.wait(4, 6)
                     return True
                 else:
                     return False
@@ -402,125 +527,135 @@ class InstagramBot:
                 return False
         else:
             return False
-    def unfollow(self, account):
-        driver.get('https://www.instagram.com' + account)
+
+    def unfollow(self, href):
+        driver.get('https://www.instagram.com' + href)
         try:
-            follow_button = WebDriverWait(self.driver, 6).until(EC.presence_of_element_located((By.XPATH, '//*[@id="react-root"]/section/main/div/header/section/div[1]/div[2]/span/span[1]/button')))
+            follow_button = WebDriverWait(self.driver, 6).until(EC.presence_of_element_located(
+                (By.XPATH, '//*[@id="react-root"]/section/main/div/header/section/div[1]/div[1]/div/div[2]/button')))
         except:
-            try:
-                follow_button = WebDriverWait(self.driver, 6).until(EC.presence_of_element_located((By.XPATH, '//*[@id="react-root"]/section/main/div/header/section/div[1]/button')))
-            except:
-                follow_button = WebDriverWait(self.driver, 6).until(EC.presence_of_element_located((By.XPATH, '//*[@id="react-root"]/section/main/div/header/section/div[1]/div[1]/span/span[1]/button')))
-        time.sleep(self.adaptation*random.randint(1,2))
+            print('ERROR: unfollow')
+        self.wait(1, 2)
         follow_button.click()
         try:
-            unfollow_button = WebDriverWait(self.driver, 6).until(EC.presence_of_element_located((By.XPATH, '/html/body/div[4]/div/div/div[3]/button[1]')))
+            unfollow_button = WebDriverWait(self.driver, 6).until(EC.presence_of_element_located(
+                (By.XPATH, '/html/body/div[5]/div/div/div/div[3]/button[1]')))
         except:
-            unfollow_button = WebDriverWait(self.driver, 6).until(EC.presence_of_element_located((By.XPATH, '//*[@id="react-root"]/section/main/div/header/section/div[1]/div[2]/span/span[1]/button')))
-        time.sleep(self.adaptation*random.randint(1,2))
+            print('ERROR: unfollow')
+        self.wait(1, 2)
         unfollow_button.click()
-    def followers_update(self, user):
-        self.cur_hrefs.append(user)
+
+    def followers_update(self, href):
+        self.cur_hrefs.append(href)
         self.cur_hrefs_time.append(time.time())
-        self.all_hrefs.append(user)
-        self.app_all_hrefs(user)
-        self.app_cur_hrefs(user)
+        self.all_hrefs.append(href)
+        self.append_all_hrefs(href)
+        self.append_current_hrefs(href)
 
     def run_bot(self):
-        added = 0
-        L = 0
-        cL = 0
-        F = 0
-        cF = 0
-        h = 0
+        increased = False
+        likes = 0
+        current_likes = 0
+        follows = 0
+        current_follows = 0
+        hours_running = 0
 
         print('loging in : run')
         self.login()
         print('loging in : done')
 
         print('cleaning process : run')
-        self.clear_cur_hrefs(7)
+        if self.clearing_mode == 'light':
+            self.light_clear_current_hrefs(DAYS_TO_UNFOLLOW)
+        else:
+            self.hard_clear_current_hrefs(DAYS_TO_UNFOLLOW)
         print('cleaning proces : done')
 
-        print('following process : run')    
-        while h != self.hh:
-            my_followed = self.get_my_followed_number()
-            time.sleep(self.adaptation*random.randint(4,8))
-            if my_followed + 60 > 7500:
-                while my_followed + 60 > 7500:
-                    print('followers limit used :', my_followed)
+        print('following process : run')
+        while hours_running != self.hours:
+            my_followed_accounts = self.get_my_followed_accounts_number()
+            self.wait(4, 8)
+            if my_followed_accounts + 60 > LIMIT_OF_FOLLOWED_ACCOUNTS:
+                while my_followed_accounts + 60 > LIMIT_OF_FOLLOWED_ACCOUNTS:
+                    print('ERR: followers limit used :', my_followed_accounts)
                     print('need to wait : 60.0m')
                     time.sleep(3600)
-                    self.clear_cur_hrefs(7)
-                    my_followed = self.get_my_followed_number()
+                    self.hard_clear_current_hrefs(DAYS_TO_UNFOLLOW)
+                    my_followed_accounts = self.get_my_followed_accounts_number()
             else:
                 print('searching accounts : run')
-                self.get_specific_hrefs()
-                print('searching accounts : done') 
-                time.sleep(self.adaptation*random.randint(4,8))
-                tim_start = time.time()
-                for r in self.hrefs:
+                self.get_specific_accounts()
+                print('searching accounts : done')
+                self.wait(4, 8)
+                time_start = time.time()
+                for href in self.hrefs:
                     undetected = 0
-                    while undetected==0:
-                        self.driver.get('https://www.instagram.com' + r)
-                        self.error()           
-                        time.sleep(self.adaptation*random.randint(4,7))
+                    while undetected == 0:
+                        self.driver.get('https://www.instagram.com' + href)
+                        self.error()
+                        self.wait(4, 6)
                         try:
-                            if self.is_public() and self.is_existing():
+                            if self.is_account_public() and self.is_account_existing():
                                 if self.get_followers_number() < self.followers_limit:
-                                    if F < max_follows: 
+                                    if follows < MAX_FOLLOWS_PER_HOUR:
                                         try:
-                                            self.follow_page()
-                                            F += 1
-                                            cF +=1
-                                            print('page followed successfully : ', cF)
-                                            self.followers_update(r)
-                                            time.sleep(self.adaptation*random.randint(8,12))
+                                            self.follow_account()
+                                            follows += 1
+                                            current_follows += 1
+                                            print(
+                                                'followed pages : ', current_follows)
+                                            self.followers_update(href)
+                                            self.wait(8, 12)
                                         except:
-                                            print('could not follow : still', cF)
-                                    if L < max_likes:
+                                            print(
+                                                'ERR: could not follow : still', current_follows)
+                                    if likes < MAX_LIKES_PER_HOUR:
                                         try:
                                             self.like_post()
-                                            L += 1
-                                            cL += 1
-                                            print("post liked : ", cL)
-                                            time.sleep(self.adaptation*random.randint(8,12))
+                                            likes += 1
+                                            current_likes += 1
+                                            print("liked posts : ",
+                                                  current_likes)
+                                            self.wait(8, 12)
                                         except:
-                                            print('could not like : still ', cL)
+                                            print(
+                                                'ERR: could not like : still ', current_likes)
                                     else:
                                         break
                                 else:
-                                    time.sleep(self.adaptation*random.randint(3,5))
-                                    self.app_too_many_followers_hrefs(r)
-                                    print('too many followers')
+                                    self.wait(3, 5)
+                                    self.append_too_many_followers_hrefs(href)
+                                    print('ERR: too many followers')
                             else:
-                                print('account is private')
-                                self.app_prv_hrefs(r)
-                                time.sleep(self.adaptation*5)
+                                print('ERR: account is private')
+                                self.append_private_hrefs(href)
+                                self.wait(4, 5)
                             undetected = 1
-                            added = 0
+                            increased = False
                         except:
-                            print('bot has been detected')
-                            if added == 0:
+                            print('ERR: bot has been detected')
+                            if increased == False:
                                 self.adaptation *= 1.2
-                                print('adaptation level has been increased to ', self.adaptation , ' level')
-                                added = 1
+                                print('adaptation level has been increased to ',
+                                      self.adaptation)
+                                increased = True
                             print('need to wait : 30.0m')
                             time.sleep(1800)
-                tim_wait = 3600 - (time.time() - tim_start)
-                if tim_wait > 0:
-                    print('hourly limit used')
-                    print('need to wait :', round((tim_wait/60),1), 'm')
-                    time.sleep(tim_wait)
+                time_wait = 3600 - (time.time() - time_start)
+                if time_wait > 0:
+                    print('hourly limit has been used')
+                    print('need to wait :', round((time_wait/60), 1), 'm')
+                    time.sleep(time_wait)
                 else:
-                    print('TIME :', round((tim_wait/60),1), 'm')
+                    print('time exceeded :', round((time_wait/60), 1), 'm')
                     print('need to wait : 10.0m')
                     time.sleep(600)
-                F=0
-                L=0
-                h += 1
+                follows = 0
+                likes = 0
+                hours_running += 1
         print('following process : done')
         self.closeBrowser()
 
+
 if __name__ == '__main__':
-	main()	
+    main()
