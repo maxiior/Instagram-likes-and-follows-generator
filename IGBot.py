@@ -163,11 +163,11 @@ class InstagramBot:
 
     def error(self):
         while True:
-            print('ERR: strona nie działa')
             try:
                 err = WebDriverWait(self.driver, 3).until(
                     EC.presence_of_element_located((By.CSS_SELECTOR, '#main-message > h1 > span')))
                 if err.text == 'Ta strona nie działa':
+                    print('ERR: strona nie działa')
                     driver.refresh()
                 else:
                     break
