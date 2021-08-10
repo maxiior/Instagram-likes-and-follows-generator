@@ -620,6 +620,7 @@ class InstagramBot:
                     undetected = 0
                     while undetected == 0:
                         self.driver.get('https://www.instagram.com' + href)
+                        self.wait(1, 2)
                         self.error()
                         self.wait(4, 6)
                         try:
