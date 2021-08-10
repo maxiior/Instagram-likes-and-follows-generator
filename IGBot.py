@@ -11,8 +11,8 @@ import random
 import os
 import numpy as np
 
-driver = None
-path = "D:\\Python\\chromedriver.exe"
+DRIVER = None
+PATH = "C:\\Python\\chromedriver.exe"
 
 ADAPTATION = 2
 MAX_LIKES_PER_HOUR = 60
@@ -22,7 +22,7 @@ DAYS_TO_UNFOLLOW = 7
 
 
 def main():
-    global driver
+    global DRIVER
     print('WELCOME TO IGBOT\n')
 
     login = input('Login : ')
@@ -32,9 +32,9 @@ def main():
     limit = float(input('Followers limit that BOT should follow : '))
     clearing_mode = input(
         'What type of clearing you want to use? [light/hard] : ')
-    driver = webdriver.Chrome(path)
+    DRIVER = webdriver.Chrome(PATH)
     IGBot = InstagramBot(login, password, target, hours,
-                         limit, clearing_mode, ADAPTATION, driver)
+                         limit, clearing_mode, ADAPTATION, DRIVER)
     IGBot.run_bot()
 
 
@@ -114,7 +114,15 @@ class InstagramBot:
             self.popup = WebDriverWait(self.driver, 6).until(
                 EC.presence_of_element_located((By.XPATH, '/html/body/div[5]/div/div/div[2]')))
         except:
-            print("ERROR: get_followers_hrefs")
+            try:
+                self.popup = WebDriverWait(self.driver, 6).until(
+                    EC.presence_of_element_located((By.XPATH, '/html/body/div[4]/div/div/div[2]')))     
+            except:
+                try:
+                    self.popup = WebDriverWait(self.driver, 6).until(
+                    EC.presence_of_element_located((By.XPATH, '/html/body/div[6]/div/div/div[2]')))
+                except: 
+                    print("ERROR: get_followers_hrefs")
 
         for i in range(times):
             self.wait(1, 2)
@@ -168,7 +176,7 @@ class InstagramBot:
                     EC.presence_of_element_located((By.CSS_SELECTOR, '#main-message > h1 > span')))
                 if err.text == 'Ta strona nie działa':
                     print('ERR: strona nie działa')
-                    driver.refresh()
+                    self.driver.refresh()
                 else:
                     break
             except:
@@ -186,23 +194,25 @@ class InstagramBot:
             return True
 
     def is_account_existing(self):
+        check = True
+
         try:
             information = WebDriverWait(self.driver, 3).until(EC.presence_of_element_located(
                 (By.CSS_SELECTOR, 'body > div > div.page.-cx-PRIVATE-Page__body.-cx-PRIVATE-Page__body__ > div > div > h2')))
             if information.text == 'Przepraszamy, ta strona jest niedostępna':
-                return False
-            else:
-                return True
+                check = False
         except:
-            try:
-                information = WebDriverWait(self.driver, 3).until(EC.presence_of_element_located(
-                    (By.CSS_SELECTOR, '#react-root > section > main > div > h2')))
-                if information.text == 'Przepraszamy, ta strona jest niedostępna':
-                    return False
-                else:
-                    return True
-            except:
-                return True
+            pass
+
+        try:
+            information = WebDriverWait(self.driver, 3).until(EC.presence_of_element_located(
+                (By.CSS_SELECTOR, '#react-root > section > main > div > div > h2')))
+            if information.text == 'Przepraszamy, ta strona jest niedostępna':
+                check = False
+        except:
+            pass
+        
+        return check
 
     def like_post(self):
         post = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located(
@@ -407,7 +417,10 @@ class InstagramBot:
                 if self.check_if_account_follow_me(self.cur_hrefs[i]):
                     self.append_hrefs_that_follow_me(self.cur_hrefs[i])
                     self.unfollow(self.cur_hrefs[i])
-                    transitional_follow_me_hrefs.remove(self.cur_hrefs[i])
+                    try:
+                        transitional_follow_me_hrefs.remove(self.cur_hrefs[i])
+                    except:
+                        pass
                     self.cur_hrefs.remove(self.cur_hrefs[i])
                     self.cur_hrefs_time.remove(self.cur_hrefs_time[i])
                     self.save_current_hrefs()
@@ -493,7 +506,8 @@ class InstagramBot:
         file.close()
 
     def check_if_account_follow_me(self, href):
-        driver.get('https://www.instagram.com' + href)
+        self.driver.get('https://www.instagram.com' + href)
+        self.wait(1, 2)
         self.error()
         if self.is_account_existing():
             self.wait(1, 2)
@@ -501,7 +515,11 @@ class InstagramBot:
                 follow_button = WebDriverWait(self.driver, 6).until(EC.presence_of_element_located(
                     (By.XPATH, '//*[@id="react-root"]/section/main/div/header/section/div[1]/div[1]/div/div[2]/button')))
             except:
-                print('ERROR: check_if_account_follow_me')
+                try:
+                    follow_button = WebDriverWait(self.driver, 6).until(EC.presence_of_element_located(
+                    (By.XPATH, '//*[@id="react-root"]/section/main/div/header/section/div[1]/div[1]/div/div/button')))
+                except:
+                    print('ERROR: check_if_account_follow_me')
 
             if follow_button.text.lower() == 'obserwuj':
                 return False
@@ -510,9 +528,15 @@ class InstagramBot:
                 unfollow_button = WebDriverWait(self.driver, 8).until(EC.presence_of_element_located(
                     (By.XPATH, '/html/body/div[5]/div/div/div/div[3]/button[1]')))
             except:
-                print('ERROR: check_if_account_follow_me')
+                try:
+                    unfollow_button = WebDriverWait(self.driver, 8).until(EC.presence_of_element_located(
+                    (By.XPATH, '/html/body/div[6]/div/div/div/div[3]/button[1]')))
+                except:
+                    print('ERROR: check_if_account_follow_me')
             self.wait(1, 2)
             unfollow_button.click()
+            self.wait(1, 2)
+            
             try:
                 follow_button = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located(
                     (By.XPATH, '//*[@id="react-root"]/section/main/div/header/section/div[1]/div[1]/div/div/button')))
@@ -524,12 +548,12 @@ class InstagramBot:
                 else:
                     return False
             except:
-                return False
+                print('ERROR: check_if_account_follow_me')
         else:
             return False
 
     def unfollow(self, href):
-        driver.get('https://www.instagram.com' + href)
+        self.driver.get('https://www.instagram.com' + href)
         try:
             follow_button = WebDriverWait(self.driver, 6).until(EC.presence_of_element_located(
                 (By.XPATH, '//*[@id="react-root"]/section/main/div/header/section/div[1]/div[1]/div/div[2]/button')))
@@ -541,7 +565,11 @@ class InstagramBot:
             unfollow_button = WebDriverWait(self.driver, 6).until(EC.presence_of_element_located(
                 (By.XPATH, '/html/body/div[5]/div/div/div/div[3]/button[1]')))
         except:
-            print('ERROR: unfollow')
+            try:
+                unfollow_button = WebDriverWait(self.driver, 6).until(EC.presence_of_element_located(
+                (By.XPATH, '/html/body/div[6]/div/div/div/div[3]/button[1]')))
+            except:
+                print('ERROR: unfollow')
         self.wait(1, 2)
         unfollow_button.click()
 
