@@ -31,7 +31,7 @@ def main():
     hours = input('How many hours should run? : ')
     limit = float(input('Followers limit that BOT should follow : '))
     clearing_mode = input(
-        'What type of clearing you want to use? [light/hard] : ')
+        'What type of clearing you want to use? [none/light/hard] : ')
     DRIVER = webdriver.Chrome(PATH)
     IGBot = InstagramBot(login, password, target, hours,
                          limit, clearing_mode, ADAPTATION, DRIVER)
@@ -160,7 +160,7 @@ class InstagramBot:
         accounts = []
         i = 10
         while number_of_selected_accounts < 120:
-            i += 2
+            i += 10
             accounts = self.get_followers_hrefs(self.target, i)
             number_of_selected_accounts = len(accounts)
         if number_of_selected_accounts > 120:
@@ -581,7 +581,7 @@ class InstagramBot:
         self.append_current_hrefs(href)
 
     def run_bot(self):
-        increased = False
+        #increased = False
         likes = 0
         current_likes = 0
         follows = 0
@@ -617,59 +617,50 @@ class InstagramBot:
                 self.wait(4, 8)
                 time_start = time.time()
                 for href in self.hrefs:
-                    undetected = 0
-                    while undetected == 0:
-                        self.driver.get('https://www.instagram.com' + href)
-                        self.wait(1, 2)
-                        self.error()
-                        self.wait(4, 6)
-                        try:
-                            if self.is_account_public() and self.is_account_existing():
-                                if self.get_followers_number() < self.followers_limit:
-                                    if follows < MAX_FOLLOWS_PER_HOUR:
-                                        try:
-                                            self.follow_account()
-                                            follows += 1
-                                            current_follows += 1
-                                            print(
-                                                'followed pages : ', current_follows)
-                                            self.followers_update(href)
-                                            self.wait(8, 12)
-                                        except:
-                                            print(
-                                                'ERR: could not follow : still', current_follows)
-                                    if likes < MAX_LIKES_PER_HOUR:
-                                        try:
-                                            self.like_post()
-                                            likes += 1
-                                            current_likes += 1
-                                            print("liked posts : ",
-                                                  current_likes)
-                                            self.wait(8, 12)
-                                        except:
-                                            print(
-                                                'ERR: could not like : still ', current_likes)
-                                    else:
-                                        break
+                    self.driver.get('https://www.instagram.com' + href)
+                    self.wait(1, 2)
+                    self.error()
+                    self.wait(4, 6)
+                    try:
+                        if self.is_account_public() and self.is_account_existing():
+                            if self.get_followers_number() < self.followers_limit:
+                                if follows < MAX_FOLLOWS_PER_HOUR:
+                                    try:
+                                        self.follow_account()
+                                        follows += 1
+                                        current_follows += 1
+                                        print(
+                                            'followed pages : ', current_follows)
+                                        self.followers_update(href)
+                                        self.wait(8, 12)
+                                    except:
+                                        print(
+                                            'ERR: could not follow : still', current_follows)
+                                if likes < MAX_LIKES_PER_HOUR:
+                                    try:
+                                        self.like_post()
+                                        likes += 1
+                                        current_likes += 1
+                                        print("liked posts : ",
+                                                current_likes)
+                                        self.wait(8, 12)
+                                    except:
+                                        print(
+                                            'ERR: could not like : still ', current_likes)
                                 else:
-                                    self.wait(3, 5)
-                                    self.append_too_many_followers_hrefs(href)
-                                    print('ERR: too many followers')
+                                    break
                             else:
-                                print('ERR: account is private')
-                                self.append_private_hrefs(href)
-                                self.wait(4, 5)
-                            undetected = 1
-                            increased = False
-                        except:
-                            print('ERR: bot has been detected')
-                            if increased == False:
-                                self.adaptation *= 1.2
-                                print('adaptation level has been increased to ',
-                                      self.adaptation)
-                                increased = True
-                            print('need to wait : 30.0m')
-                            time.sleep(1800)
+                                self.wait(3, 5)
+                                self.append_too_many_followers_hrefs(href)
+                                print('ERR: too many followers')
+                        else:
+                            print('ERR: account is private')
+                            self.append_private_hrefs(href)
+                            self.wait(4, 5)
+                        undetected = 1
+                        increased = False
+                    except:
+                        print('ERR: unexpected problem')
                 time_wait = 3600 - (time.time() - time_start)
                 if time_wait > 0:
                     print('hourly limit has been used')
