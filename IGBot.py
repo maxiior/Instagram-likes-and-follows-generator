@@ -581,7 +581,6 @@ class InstagramBot:
         self.append_current_hrefs(href)
 
     def run_bot(self):
-        #increased = False
         likes = 0
         current_likes = 0
         follows = 0
