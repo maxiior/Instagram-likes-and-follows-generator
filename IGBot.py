@@ -12,7 +12,7 @@ import os
 import numpy as np
 
 DRIVER = None
-PATH = "C:\\Python\\chromedriver.exe"
+PATH = "D:\\Python\\chromedriver.exe"
 
 ADAPTATION = 2
 MAX_LIKES_PER_HOUR = 60
@@ -76,8 +76,13 @@ class InstagramBot:
         time.sleep(5)
 
     def get_followers_number(self):
-        followers = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located(
-            (By.CSS_SELECTOR, '#react-root > section > main > div > header > section > ul > li:nth-child(2) > a > span')))
+        try:
+            followers = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located(
+                (By.CSS_SELECTOR, '#react-root > section > main > div > header > section > ul > li:nth-child(2) > a > div > span')))
+        except:
+            followers = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located(
+                (By.CSS_SELECTOR, '#react-root > section > main > div > header > section > ul > li:nth-child(2) > div > span')))
+
         f = followers.text.replace(
             '.', '').replace(',', '.').replace(' ', '')
         if 'tys' in f:
@@ -92,7 +97,7 @@ class InstagramBot:
     def get_my_followed_accounts_number(self):
         self.driver.get('https://www.instagram.com/' + self.username + '/')
         followers = WebDriverWait(self.driver, 10).until(
-            EC.presence_of_element_located((By.CSS_SELECTOR, '#react-root > section > main > div > header > section > ul > li:nth-child(2) > a > span')))
+            EC.presence_of_element_located((By.CSS_SELECTOR, '#react-root > section > main > div > header > section > ul > li:nth-child(3) > a > div > span')))
         f = followers.text.replace(
             '.', '').replace(',', '.').replace(' ', '')
         if 'tys' in f:
@@ -108,21 +113,13 @@ class InstagramBot:
         self.driver.get('https://www.instagram.com/' + user + '/')
         self.wait(3, 5)
         followers_button = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located(
-            (By.CSS_SELECTOR, '#react-root > section > main > div > header > section > ul > li:nth-child(2) > a > span')))
+            (By.CSS_SELECTOR, '#react-root > section > main > div > header > section > ul > li:nth-child(2) > a > div > span')))
         followers_button.click()
         try:
             self.popup = WebDriverWait(self.driver, 6).until(
-                EC.presence_of_element_located((By.XPATH, '/html/body/div[5]/div/div/div[2]')))
+                EC.presence_of_element_located((By.XPATH, '/html/body/div[6]/div/div/div/div[2]')))
         except:
-            try:
-                self.popup = WebDriverWait(self.driver, 6).until(
-                    EC.presence_of_element_located((By.XPATH, '/html/body/div[4]/div/div/div[2]')))     
-            except:
-                try:
-                    self.popup = WebDriverWait(self.driver, 6).until(
-                    EC.presence_of_element_located((By.XPATH, '/html/body/div[6]/div/div/div[2]')))
-                except: 
-                    print("ERROR: get_followers_hrefs")
+            print("ERROR: get_followers_hrefs")
 
         for i in range(times):
             self.wait(1, 2)
@@ -211,7 +208,7 @@ class InstagramBot:
                 check = False
         except:
             pass
-        
+
         return check
 
     def like_post(self):
@@ -221,7 +218,7 @@ class InstagramBot:
         self.driver.get('https://www.instagram.com' + href)
         self.wait(1, 2)
         like_button = WebDriverWait(self.driver, 5).until(EC.presence_of_element_located(
-            (By.CSS_SELECTOR, '#react-root > section > main > div > div.ltEKP > article > div.eo2As > section.ltpMr.Slqrh > span.fr66n > button > div > span > svg')))
+            (By.CSS_SELECTOR, '#react-root > section > main > div > div > article > div > div.qF0y9.Igw0E.IwRSH.eGOV_._4EzTm > div > div.eo2As > section.ltpMr.Slqrh > span.fr66n > button')))
         like_button.click()
 
     def follow_account(self):
@@ -517,7 +514,7 @@ class InstagramBot:
             except:
                 try:
                     follow_button = WebDriverWait(self.driver, 6).until(EC.presence_of_element_located(
-                    (By.XPATH, '//*[@id="react-root"]/section/main/div/header/section/div[1]/div[1]/div/div/button')))
+                        (By.XPATH, '//*[@id="react-root"]/section/main/div/header/section/div[1]/div[1]/div/div/button')))
                 except:
                     print('ERROR: check_if_account_follow_me')
 
@@ -530,13 +527,13 @@ class InstagramBot:
             except:
                 try:
                     unfollow_button = WebDriverWait(self.driver, 8).until(EC.presence_of_element_located(
-                    (By.XPATH, '/html/body/div[6]/div/div/div/div[3]/button[1]')))
+                        (By.XPATH, '/html/body/div[6]/div/div/div/div[3]/button[1]')))
                 except:
                     print('ERROR: check_if_account_follow_me')
             self.wait(1, 2)
             unfollow_button.click()
             self.wait(1, 2)
-            
+
             try:
                 follow_button = WebDriverWait(self.driver, 10).until(EC.presence_of_element_located(
                     (By.XPATH, '//*[@id="react-root"]/section/main/div/header/section/div[1]/div[1]/div/div/button')))
@@ -567,7 +564,7 @@ class InstagramBot:
         except:
             try:
                 unfollow_button = WebDriverWait(self.driver, 6).until(EC.presence_of_element_located(
-                (By.XPATH, '/html/body/div[6]/div/div/div/div[3]/button[1]')))
+                    (By.XPATH, '/html/body/div[6]/div/div/div/div[3]/button[1]')))
             except:
                 print('ERROR: unfollow')
         self.wait(1, 2)
@@ -601,6 +598,8 @@ class InstagramBot:
         print('following process : run')
         while hours_running != self.hours:
             my_followed_accounts = self.get_my_followed_accounts_number()
+            print('number of accounts you are following : {0}'.format(
+                int(my_followed_accounts)))
             self.wait(4, 8)
             if my_followed_accounts + 60 > LIMIT_OF_FOLLOWED_ACCOUNTS:
                 while my_followed_accounts + 60 > LIMIT_OF_FOLLOWED_ACCOUNTS:
@@ -641,7 +640,7 @@ class InstagramBot:
                                         likes += 1
                                         current_likes += 1
                                         print("liked posts : ",
-                                                current_likes)
+                                              current_likes)
                                         self.wait(8, 12)
                                     except:
                                         print(
