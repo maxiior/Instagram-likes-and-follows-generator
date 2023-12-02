@@ -401,10 +401,11 @@ class InstagramBot(Delay):
                 stop = time.time()
 
                 wait = 3600-(stop-start)
+                extra_wait = random.randint(0, 400)
                 self.__log('hourly limit used', mode='else')
-                self.__log(f'need to wait : {round(wait/60, 1) if wait > 0 else 30, "m"}', mode='else')
+                self.__log(f'need to wait : {round(wait/60, 1) if wait > 0 else 30+round(extra_wait/60,1), "m"}', mode='else')
 
-                self.delay(wait) if wait > 0 else self.delay(1800)
+                self.delay(wait) if wait > 0 else self.delay(1800 + extra_wait)
                 hours += 1
 
 main()
