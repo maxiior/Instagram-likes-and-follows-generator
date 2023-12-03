@@ -299,8 +299,10 @@ class InstagramBot(Delay):
         while True:
             self.delay()
             if self.__check_if_text_in_page_source('Coś poszło nie tak'):
-                self.__log(message=f'your account has probably been temporarily blocked. Work will resume in 60.0m', mode='error')
-                self.delay(3600)
+                extra_wait = random.randint(0, 20)
+                self.__log(message=f'your account has probably been temporarily blocked. Work will resume in {round(60+extra_wait, 1)}m', mode='error')
+                self.delay(3600 + extra_wait*60)
+                DRIVER.refresh()
             else:
                 break
 
@@ -401,11 +403,11 @@ class InstagramBot(Delay):
                 stop = time.time()
 
                 wait = 3600-(stop-start)
-                extra_wait = random.randint(0, 400)
+                extra_wait = random.randint(0, 20)
                 self.__log('hourly limit used', mode='else')
-                self.__log(f'need to wait : {round(wait/60, 1) if wait > 0 else 30+round(extra_wait/60,1), "m"}', mode='else')
+                self.__log(f'need to wait : {round(wait/60, 1) if wait > 0 else 30+extra_wait, "m"}', mode='else')
 
-                self.delay(wait) if wait > 0 else self.delay(1800 + extra_wait)
+                self.delay(wait) if wait > 0 else self.delay(1800 + extra_wait*60)
                 hours += 1
 
 main()
