@@ -21,7 +21,7 @@ DAYS_TO_UNFOLLOW = 7
 MAX_FOLLOWED_PER_HOUR = 150
 FOLLOWED_LIMIT = 7500
 MAX_FOLLOWING = 1000
-TARGETS = "kamil_szymczak,jakubroskosz,karolina_pisarek,thenitrozyniak,isamupt,kacperblonsky,gordziejewska.biznes,czarny_polak_,adam.lochynski,sukcespl,kuuuubs,pudzianofficial,sawardega_wataha,zacefron,alexcosta,littlemooonster96"
+TARGETS = "kamil_szymczak,jakubroskosz,karolina_pisarek,thenitrozyniak,isamupt,kacperblonsky,gordziejewska.biznes,czarny_polak_,adam.lochynski,sukcespl,kuuuubs,pudzianofficial,sawardega_wataha,zacefron,alexcosta,littlemooonster96,cristiano"
 
 #wujekrada,wojtekgola,boxdel,
 
@@ -88,25 +88,31 @@ class InstagramBot(Delay):
         self.__instagram_url = "https://www.instagram.com"
     
     def __make_report(self):
-        df = pd.read_csv('./data/maxiior_users_data.csv')
-        df_all = df.groupby('target').size().reset_index(name='count_all')
-        df = df[df['followedback'] == True]
-        df = df.groupby('target').size().reset_index(name='count_followedback')
-        merged_df = pd.merge(df_all, df, on='target')
-        merged_df['ratio'] = round(merged_df['count_followedback'] / merged_df['count_all'], 3)
-        merged_df = merged_df.sort_values(by='ratio', ascending=False).reset_index().drop('index', axis=1)
+        df = pd.read_csv(f'./data/{self.username}_users_data.csv')
+        if len(df) > 0:
+            df_all = df.groupby('target').size().reset_index(name='count_all')
+            df = df[df['followedback'] == True]
+            df = df.groupby('target').size().reset_index(name='count_followedback')
+            merged_df = pd.merge(df_all, df, on='target', how='left').fillna(0)
+            merged_df['ratio'] = round(merged_df['count_followedback'] / merged_df['count_all'], 3)
+            merged_df = merged_df.sort_values(by='ratio', ascending=False).reset_index().drop('index', axis=1)
 
-        merged_df = merged_df.rename(columns={'ratio': 'followsback_ratio'})
-        merged_df.plot(x='target', y=['followsback_ratio'], kind='bar')
-        plt.xlabel('')
-        plt.savefig('./archive/followsback_ratio_report.png', bbox_inches="tight")
+            merged_df.to_csv('./archive/report.csv', index=False)
 
-        plt.clf()
+            merged_df = merged_df.rename(columns={'ratio': 'followsback_ratio'})
+            merged_df.plot(x='target', y=['followsback_ratio'], kind='bar')
+            plt.xlabel('')
+            plt.savefig('./archive/followsback_ratio_report.png', bbox_inches="tight")
 
-        merged_df = merged_df.rename(columns={'count_followedback': 'followsback_count'})
-        merged_df.sort_values(by='followsback_count', ascending=False).plot(x='target', y=['followsback_count'], kind='bar')
-        plt.xlabel('')
-        plt.savefig('./archive/followsback_count_report.png', bbox_inches="tight")
+            plt.clf()
+
+            merged_df = merged_df.rename(columns={'count_followedback': 'followsback_count'})
+            merged_df.sort_values(by='followsback_count', ascending=False).plot(x='target', y=['followsback_count'], kind='bar')
+            plt.xlabel('')
+            plt.savefig('./archive/followsback_count_report.png', bbox_inches="tight")
+            return True
+        else:
+            return False
 
     def __log(self, message, mode='info'):
         if mode == 'info':
@@ -185,8 +191,10 @@ class InstagramBot(Delay):
                         button.click()
                         self.delay()
 
-                        followedback = True if self.__find_component_by_text('także obserwuj') else False
-                        self.__unmark_followed_user(i, followedback, False)
+                        followedback_a = True if self.__find_component_by_text('także obserwuj') else False
+                        followedback_b = True if self.__find_component_by_text('również obserwuj') else False
+
+                        self.__unmark_followed_user(i, followedback_a or followedback_b, False)
                         self.__log(message=f'user has been unfollowed: {i}', mode='info')
                         continue
                     
@@ -230,30 +238,50 @@ class InstagramBot(Delay):
     
     def __get_users_to_follow_list_part(self, source_name, current_list, times):
         with TimeLock(f'{self.__instagram_url}/{source_name}/followers'):
-            users_to_follow = []
-            limited = True if self.__check_if_text_in_page_source('może zobaczyć wszystkich obserwujących') else False
-            body = WebDriverWait(DRIVER, 10).until(EC.presence_of_element_located((By.XPATH, '/html/body')))
+            self.__account_lockout_detection()
+            
+            if not self.__check_if_account_private():
+                users_to_follow = []
+                limited = True if self.__check_if_text_in_page_source('może zobaczyć wszystkich obserwujących') else False
+                body = WebDriverWait(DRIVER, 10).until(EC.presence_of_element_located((By.XPATH, '/html/body')))
 
-            if not limited:
-                popup = DRIVER.find_element(By.CLASS_NAME, '_aano')
-                for _ in range(times):
-                    DRIVER.execute_script('arguments[0].scrollTop = arguments[0].scrollHeight', popup)
-                    self.delay(3)
-            
-            users = B(body.get_attribute('innerHTML'), 'html.parser').select('div > div > div > div > div > div > div > div > div > a > div > div > span')
-            
-            for i in users:
-                name = i.get_text()
-                if not name in self.__users_data['username'].tolist() and not name in current_list:
-                    users_to_follow.append((name, source_name))
+                if not limited:
+                    popup = DRIVER.find_element(By.CLASS_NAME, '_aano')
+                    for _ in range(times):
+                        DRIVER.execute_script('arguments[0].scrollTop = arguments[0].scrollHeight', popup)
+                        self.delay(3)
+                
+                users = B(body.get_attribute('innerHTML'), 'html.parser').select('div > div > div > div > div > div > div > div > div > a > div > div > span')
+                
+                for i in users:
+                    name = i.get_text()
+                    if not name in self.__users_data['username'].tolist() and not name in current_list:
+                        users_to_follow.append((name, source_name))
+            else:
+                self.__log(message=f'user is private: {source_name}', mode='error')
+                return [], True
 
         return users_to_follow, limited
+
+    def __get_targets_based_on_report(self):
+        try:
+            targets = pd.read_csv('archive/report.csv')['target'].tolist()
+            not_visited_targets = list(set(self.targets) - set(targets))
+            
+            if len(not_visited_targets) > 0:
+                rand_target = random.choice(not_visited_targets)
+                targets.insert(0, rand_target)
+                not_visited_targets.remove(rand_target)
+                return targets + not_visited_targets
+            return targets
+        except:
+            return self.targets
 
     def __get_users_to_follow_list(self):
         users_to_follow, drop_from_targets = [], []
         i = 7
         done = False
-        targets = self.targets
+        targets = self.__get_targets_based_on_report()
 
         while len(users_to_follow) < MAX_FOLLOWED_PER_HOUR:
             for j in targets:
@@ -299,7 +327,7 @@ class InstagramBot(Delay):
         while True:
             self.delay()
             if self.__check_if_text_in_page_source('Coś poszło nie tak'):
-                extra_wait = random.randint(0, 20)
+                extra_wait = random.randint(0, 60)
                 self.__log(message=f'your account has probably been temporarily blocked. Work will resume in {round(60+extra_wait, 1)}m', mode='error')
                 self.delay(3600 + extra_wait*60)
                 DRIVER.refresh()
@@ -379,8 +407,12 @@ class InstagramBot(Delay):
             self.__log('clearing : done', mode='else')
 
             self.__log('making report : run', mode='else')
-            self.__make_report()
-            self.__log('making report : done', mode='else')
+            status = self.__make_report()
+            if status:
+                self.__log('making report : done', mode='else')
+            else:
+                self.__log(message=f'not enough data to create a report yet', mode='error')
+                self.__log('making report : done', mode='else')
             
             with TimeLock(f'{self.__instagram_url}/{self.username}/'):
                 self.__account_lockout_detection()
